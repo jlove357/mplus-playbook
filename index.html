@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mythic+ Playbook</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg: #0d0d10;
+    --panel: #141419;
+    --panel2: #1b1b22;
+    --gold: #c9a227;
+    --gold-hi: #e8c15a;
+    --text: #e8e4d8;
+    --muted: #9a958a;
+    --red: #b03a2e;
+    --green: #2e8b57;
+    --blue: #3a7bd5;
+    --purple: #7d3c98;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: Georgia, 'Times New Roman', serif;
+  }
+  header {
+    border-bottom: 2px solid var(--gold);
+    padding: 14px 22px;
+    display: flex; justify-content: space-between; align-items: center;
+    background: linear-gradient(#17171d, #101014);
+  }
+  header h1 { margin: 0; color: var(--gold-hi); font-size: 26px; letter-spacing: 2px; }
+  header h1 small { display: block; font-size: 12px; color: var(--muted); letter-spacing: 3px; }
+  #affixBanner {
+    border: 1px solid var(--gold); border-radius: 6px; padding: 8px 14px;
+    background: var(--panel2); max-width: 46%; font-size: 14px;
+  }
+  #affixBanner b { color: var(--gold-hi); }
+  .layout { display: flex; gap: 16px; padding: 16px 22px; align-items: flex-start; }
+  aside { width: 300px; flex-shrink: 0; }
+  main { flex: 1; min-width: 0; }
+  .card {
+    background: var(--panel); border: 1px solid #3a3220; border-radius: 8px;
+    padding: 14px; margin-bottom: 16px;
+  }
+  .card h2 {
+    margin: 0 0 10px 0; color: var(--gold-hi); font-size: 17px;
+    letter-spacing: 1px; border-bottom: 1px solid #3a3220; padding-bottom: 8px;
+  }
+  .row { display: flex; gap: 8px; align-items: center; }
+  input, select, textarea {
+    background: #0a0a0d; color: var(--text); border: 1px solid #4a4230;
+    border-radius: 4px; padding: 7px 9px; font-size: 14px; width: 100%;
+    font-family: inherit;
+  }
+  textarea { min-height: 60px; resize: vertical; }
+  button {
+    background: #2a2416; color: var(--gold-hi); border: 1px solid var(--gold);
+    border-radius: 4px; padding: 7px 12px; cursor: pointer; font-size: 13px;
+    font-family: inherit; white-space: nowrap;
+  }
+  button:hover { background: #3a3120; }
+  button.danger { border-color: var(--red); color: #e08080; background: #2a1512; }
+  button.small { padding: 3px 8px; font-size: 12px; }
+  .list { list-style: none; margin: 10px 0 0 0; padding: 0; }
+  .list li {
+    background: var(--panel2); border: 1px solid #2c2c34; border-radius: 5px;
+    padding: 9px 11px; margin-bottom: 8px; font-size: 14px;
+  }
+  .list li .meta { color: var(--muted); font-size: 12.5px; }
+  .list li .actions { margin-top: 6px; display: flex; gap: 6px; }
+  .role-tag {
+    display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 10px;
+    letter-spacing: 1px; margin-left: 8px; vertical-align: middle;
+  }
+  .role-tank { background: #1d3a5f; color: #9fc5ff; }
+  .role-healer { background: #1d5f34; color: #9fffc5; }
+  .role-dps { background: #5f1d1d; color: #ffb3b3; }
+  .pull-num {
+    display: inline-block; width: 30px; height: 30px; line-height: 30px; text-align: center;
+    border: 1px solid var(--gold); border-radius: 4px; color: var(--gold-hi);
+    font-weight: bold; margin-right: 10px;
+  }
+  .assign { color: var(--gold-hi); }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+  .form-grid .full { grid-column: 1 / -1; }
+  .hidden { display: none; }
+  .status { font-size: 12px; padding: 2px 8px; border-radius: 10px; background: #2c2c34; color: var(--muted); }
+  .status.invites_sent { background: #1d3a5f; color: #9fc5ff; }
+  .status.done { background: #1d5f34; color: #9fffc5; }
+  .debrief { border-left: 3px solid var(--purple); padding-left: 10px; margin-top: 8px; font-size: 13.5px; }
+  .debrief .meta { color: var(--muted); font-size: 12px; }
+  #connStatus { font-size: 12px; color: var(--muted); }
+  #connStatus.ok { color: var(--green); }
+  #connStatus.err { color: var(--red); }
+  .section-head { display: flex; justify-content: space-between; align-items: center; }
+  .cd-row { font-size: 13.5px; margin: 4px 0; }
+  .cd-row b { color: var(--gold-hi); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>MYTHIC+ PLAYBOOK<small>TEAM DASHBOARD</small></h1>
+  <div id="affixBanner">Loading affixes...</div>
+</header>
+<div style="padding: 4px 22px;"><span id="connStatus">Connecting...</span></div>
+
+<div class="layout">
+  <aside>
+    <div class="card">
+      <h2>5-PLAYER ROSTER</h2>
+      <ul class="list" id="playerList"></ul>
+      <div class="form-grid">
+        <input id="p_name" class="full" placeholder="Name">
+        <input id="p_spec" placeholder="Spec (e.g. Havoc DH)">
+        <input id="p_ilvl" type="number" placeholder="ilvl">
+        <select id="p_role">
+          <option value="tank">Tank</option>
+          <option value="healer">Healer</option>
+          <option value="dps" selected>DPS</option>
+        </select>
+        <button onclick="savePlayer()">Add player</button>
+        <input type="hidden" id="p_id">
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>AFFIX WEEK</h2>
+      <div class="form-grid">
+        <input id="w_label" class="full" placeholder="Week label (e.g. Oct 8 week)">
+        <input id="w_affixes" class="full" placeholder="Affixes (e.g. Fortified, Tyrannical)">
+        <textarea id="w_adjust" class="full" placeholder="Adjustments for this week"></textarea>
+        <button class="full" onclick="saveWeek()">Save week</button>
+        <input type="hidden" id="w_id">
+      </div>
+      <ul class="list" id="weekList"></ul>
+    </div>
+  </aside>
+
+  <main>
+    <div class="card">
+      <div class="section-head">
+        <h2>DUNGEON</h2>
+        <div class="row" style="width:60%">
+          <select id="dungeonSelect" onchange="selectDungeon(this.value)"></select>
+          <input id="d_name" placeholder="New dungeon name">
+          <button onclick="saveDungeon()">Add</button>
+          <input type="hidden" id="d_id">
+        </div>
+      </div>
+      <div id="dungeonEmpty" class="meta" style="color:var(--muted)">Add a dungeon to start its playbook.</div>
+    </div>
+
+    <div class="card" id="pullCard">
+      <h2>PULL-BY-PULL PLAN</h2>
+      <ul class="list" id="pullList"></ul>
+      <div class="form-grid">
+        <input id="pl_pos" type="number" placeholder="#" style="max-width:70px">
+        <input id="pl_comp" class="full" placeholder="Composition (e.g. 3x Skirmisher + 1x Channeler)" style="grid-column: 2 / -1">
+        <textarea id="pl_assign" class="full" placeholder="Assignment (e.g. Mike grips caster, focus Channeler first)"></textarea>
+        <button class="full" onclick="savePull()">Add pull</button>
+        <input type="hidden" id="pl_id">
+      </div>
+    </div>
+
+    <div class="card" id="bossCard">
+      <h2>BOSS NOTES</h2>
+      <div id="bossList"></div>
+      <div class="form-grid">
+        <input id="b_name" class="full" placeholder="Boss name">
+        <textarea id="b_pos" class="full" placeholder="Positioning notes"></textarea>
+        <button class="full" onclick="saveBoss()">Add boss</button>
+        <input type="hidden" id="b_id">
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>SESSION VIEW</h2>
+      <ul class="list" id="sessionList"></ul>
+      <div class="form-grid">
+        <select id="s_dungeon"></select>
+        <input id="s_level" type="number" placeholder="Key level">
+        <input id="s_when" type="datetime-local">
+        <select id="s_leader"></select>
+        <select id="s_status">
+          <option value="planning">Planning</option>
+          <option value="invites_sent">Invites sent</option>
+          <option value="pending">Pending</option>
+          <option value="done">Done</option>
+        </select>
+        <button class="full" onclick="saveSession()">Schedule key</button>
+        <input type="hidden" id="s_id">
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+const SUPABASE_URL = "https://hahjaldmynnyfmxlbkhw.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhhaGphbGRteW5ueWZteGxia2h3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE0NzczOTksImV4cCI6MjEwNzA1MzM5OX0.AI9Mu7-rbtyYFYaNnizw6aVHt6XBKoLPwmdWnh-1T-s";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const state = { players: [], dungeons: [], pulls: [], bosses: [], cds: [], weeks: [], sessions: [], debriefs: [], currentDungeon: null, currentWeek: null };
+
+const esc = s => String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const playerName = id => { const p = state.players.find(x => x.id === id); return p ? esc(p.name) : "?"; };
+
+async function loadAll() {
+  const status = document.getElementById("connStatus");
+  try {
+    const [pl, du, pu, bo, cd, we, se, de] = await Promise.all([
+      sb.from("players").select("*").order("created_at"),
+      sb.from("dungeons").select("*").order("name"),
+      sb.from("pulls").select("*").order("position"),
+      sb.from("bosses").select("*").order("position"),
+      sb.from("cooldown_assignments").select("*").order("created_at"),
+      sb.from("affix_weeks").select("*").order("created_at", { ascending: false }),
+      sb.from("sessions").select("*").order("scheduled_at", { ascending: true }),
+      sb.from("debriefs").select("*").order("created_at", { ascending: false })
+    ]);
+    for (const r of [pl, du, pu, bo, cd, we, se, de]) if (r.error) throw r.error;
+    state.players = pl.data; state.dungeons = du.data; state.pulls = pu.data;
+    state.bosses = bo.data; state.cds = cd.data; state.weeks = we.data;
+    state.sessions = se.data; state.debriefs = de.data;
+    if (!state.currentDungeon && state.dungeons.length) state.currentDungeon = state.dungeons[0].id;
+    if (!state.currentWeek && state.weeks.length) state.currentWeek = state.weeks[0].id;
+    status.textContent = "Connected to team database";
+    status.className = "ok";
+  } catch (e) {
+    status.textContent = "Connection failed: " + e.message;
+    status.className = "err";
+    return;
+  }
+  renderAll();
+}
+
+function renderAll() {
+  renderPlayers(); renderDungeons(); renderPulls(); renderBosses();
+  renderWeeks(); renderSessions(); renderAffixBanner();
+}
+
+/* ---------- roster ---------- */
+function renderPlayers() {
+  const ul = document.getElementById("playerList");
+  ul.innerHTML = state.players.map(p =>
+    `<li><b>${esc(p.name)}</b><span class="role-tag role-${p.role}">${p.role.toUpperCase()}</span><br>` +
+    `<span class="meta">${esc(p.spec)}${p.ilvl ? " - ilvl " + p.ilvl : ""}</span>` +
+    `<div class="actions"><button class="small" onclick="editPlayer('${p.id}')">Edit</button>` +
+    `<button class="small danger" onclick="delPlayer('${p.id}')">Delete</button></div></li>`
+  ).join("") || '<li class="meta">No players yet.</li>';
+  const sel = document.getElementById("s_leader");
+  sel.innerHTML = '<option value="">Leader...</option>' + state.players.map(p =>
+    `<option value="${p.id}">${esc(p.name)}</option>`).join("");
+}
+
+async function savePlayer() {
+  const id = document.getElementById("p_id").value;
+  const row = {
+    name: document.getElementById("p_name").value.trim(),
+    spec: document.getElementById("p_spec").value.trim(),
+    ilvl: parseInt(document.getElementById("p_ilvl").value) || null,
+    role: document.getElementById("p_role").value
+  };
+  if (!row.name || !row.spec) { alert("Name and spec are required."); return; }
+  const r = id ? await sb.from("players").update(row).eq("id", id)
+               : await sb.from("players").insert(row);
+  if (r.error) { alert(r.error.message); return; }
+  document.getElementById("p_id").value = "";
+  document.getElementById("p_name").value = ""; document.getElementById("p_spec").value = "";
+  document.getElementById("p_ilvl").value = "";
+  await loadAll();
+}
+function editPlayer(id) {
+  const p = state.players.find(x => x.id === id);
+  document.getElementById("p_id").value = p.id;
+  document.getElementById("p_name").value = p.name;
+  document.getElementById("p_spec").value = p.spec;
+  document.getElementById("p_ilvl").value = p.ilvl || "";
+  document.getElementById("p_role").value = p.role;
+}
+async function delPlayer(id) {
+  if (!confirm("Delete this player?")) return;
+  const r = await sb.from("players").delete().eq("id", id);
+  if (r.error) { alert(r.error.message); return; }
+  await loadAll();
+}
+
+/* ---------- dungeons ---------- */
+function renderDungeons() {
+  const sel = document.getElementById("dungeonSelect");
+  sel.innerHTML = state.dungeons.map(d =>
+    `<option value="${d.id}"${d.id === state.currentDungeon ? " selected" : ""}>${esc(d.name)}</option>`).join("");
+  document.getElementById("dungeonEmpty").style.display = state.dungeons.length ? "none" : "block";
+  const ssel = document.getElementById("s_dungeon");
+  ssel.innerHTML = '<option value="">Dungeon...</option>' + state.dungeons.map(d =>
+    `<option value="${d.id}">${esc(d.name)}</option>`).join("");
+}
+function selectDungeon(id) { state.currentDungeon = id || null; renderPulls(); renderBosses(); }
+async function saveDungeon() {
+  const name = document.getElementById("d_name").value.trim();
+  if (!name) { alert("Dungeon name required."); return; }
+  const r = await sb.from("dungeons").insert({ name });
+  if (r.error) { alert(r.error.message); return; }
+  document.getElementById("d_name").value = "";
+  await loadAll();
+  const d = state.dungeons.find(x => x.name === name);
+  if (d) { state.currentDungeon = d.id; renderAll(); }
+}
+
+/* ---------- pulls ---------- */
+function renderPulls() {
+  const ul = document.getElementById("pullList");
+  const pulls = state.pulls.filter(p => p.dungeon_id === state.currentDungeon).sort((a, b) => a.position - b.position);
+  ul.innerHTML = pulls.map(p =>
+    `<li><span class="pull-num">${p.position}</span><b>${esc(p.composition)}</b><br>` +
+    (p.assignment ? `<span class="assign">${esc(p.assignment)}</span>` : `<span class="meta">No assignment</span>`) +
+    `<div class="actions"><button class="small" onclick="editPull('${p.id}')">Edit</button>` +
+    `<button class="small danger" onclick="delPull('${p.id}')">Delete</button></div></li>`
+  ).join("") || '<li class="meta">No pulls yet for this dungeon.</li>';
+}
+async function savePull() {
+  if (!state.currentDungeon) { alert("Select a dungeon first."); return; }
+  const id = document.getElementById("pl_id").value;
+  const existing = state.pulls.filter(p => p.dungeon_id === state.currentDungeon);
+  const row = {
+    dungeon_id: state.currentDungeon,
+    position: parseInt(document.getElementById("pl_pos").value) || (existing.length + 1),
+    composition: document.getElementById("pl_comp").value.trim(),
+    assignment: document.getElementById("pl_assign").value.trim() || null
+  };
+  if (!row.composition) { alert("Composition required."); return; }
+  const r = id ? await sb.from("pulls").update(row).eq("id", id)
+               : await sb.from("pulls").insert(row);
+  if (r.error) { alert(r.error.message); return; }
+  document.getElementById("pl_id").value = "";
+  document.getElementById("pl_pos").value = ""; document.getElementById("pl_comp").value = "";
+  document.getElementById("pl_assign").value = "";
+  await loadAll();
+}
+function editPull(id) {
+  const p = state.pulls.find(x => x.id === id);
+  document.getElementById("pl_id").value = p.id;
+  document.getElementById("pl_pos").value = p.position;
+  document.getElementById("pl_comp").value = p.composition;
+  document.getElementById("pl_assign").value = p.assignment || "";
+}
+async function delPull(id) {
+  if (!confirm("Delete this pull?")) return;
+  const r = await sb.from("pulls").delete().eq("id", id);
+  if (r.error) { alert(r.error.message); return; }
+  await loadAll();
+}
+
+/* ---------- bosses + cooldowns ---------- */
+function renderBosses() {
+  const div = document.getElementById("bossList");
+  const bosses = state.bosses.filter(b => b.dungeon_id === state.currentDungeon);
+  div.innerHTML = bosses.map(b => {
+    const cds = state.cds.filter(c => c.boss_id === b.id);
+    return `<div class="card" style="background:var(--panel2)"><div class="section-head"><b>${esc(b.name)}</b>` +
+      `<div class="actions" style="margin:0"><button class="small" onclick="editBoss('${b.id}')">Edit</button>` +
+      `<button class="small danger" onclick="delBoss('${b.id}')">Delete</button></div></div>` +
+      (b.positioning ? `<div style="font-size:13.5px;margin:6px 0">${esc(b.positioning)}</div>` : "") +
+      `<div style="margin-top:8px"><b style="color:var(--gold-hi);font-size:13px">COOLDOWN ASSIGNMENTS</b>` +
+      (cds.map(c => `<div class="cd-row"><b>${esc(c.threshold)}</b> - ${playerName(c.player_id)}: ${esc(c.ability)}` +
+        (c.note ? ` <span class="meta">(${esc(c.note)})</span>` : "") +
+        ` <button class="small danger" onclick="delCd('${c.id}')">x</button></div>`).join("") || '<div class="meta">None yet.</div>') +
+      `</div><div class="form-grid">` +
+      `<input id="cd_t_${b.id}" placeholder="Threshold (e.g. 70%)">` +
+      `<select id="cd_p_${b.id}"><option value="">Player...</option>` +
+      state.players.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join("") + `</select>` +
+      `<input id="cd_a_${b.id}" class="full" placeholder="Ability (e.g. Shield of Vengeance)">` +
+      `<button class="full" onclick="saveCd('${b.id}')">Add cooldown</button>` +
+      `</div></div>`;
+  }).join("") || '<div class="meta">No bosses yet for this dungeon.</div>';
+}
+async function saveBoss() {
+  if (!state.currentDungeon) { alert("Select a dungeon first."); return; }
+  const id = document.getElementById("b_id").value;
+  const row = {
+    dungeon_id: state.currentDungeon,
+    name: document.getElementById("b_name").value.trim(),
+    positioning: document.getElementById("b_pos").value.trim() || null,
+    position: state.bosses.filter(b => b.dungeon_id === state.currentDungeon).length
+  };
+  if (!row.name) { alert("Boss name required."); return; }
+  const r = id ? await sb.from("bosses").update({ name: row.name, positioning: row.positioning }).eq("id", id)
+               : await sb.from("bosses").insert(row);
+  if (r.error) { alert(r.error.message); return; }
+  document.getElementById("b_id").value = "";
+  document.getElementById("b_name").value = ""; document.getElementById("b_pos").value = "";
+  await loadAll();
+}
+function editBoss(id) {
+  const b = state.bosses.find(x => x.id === id);
+  document.getElementById("b_id").value = b.id;
+  document.getElementById("b_name").value = b.name;
+  document.getElementById("b_pos").value = b.positioning || "";
+}
+async function delBoss(id) {
+  if (!confirm("Delete this boss and its cooldown assignments?")) return;
+  const r = await sb.from("bosses").delete().eq("id", id);
+  if (r.error) { alert(r.error.message); return; }
+  await loadAll();
+}
+async function saveCd(bossId) {
+  const row = {
+    boss_id: bossId,
+    threshold: document.getElementById("cd_t_" + bossId).value.trim(),
+    player_id: document.getElementById("cd_p_" + bossId).value || null,
+    ability: document.getElementById("cd_a_" + bossId).value.trim()
+  };
+  if (!row.threshold || !row.ability) { alert("Threshold and ability required."); return; }
+  const r = await sb.from("cooldown_assignments").insert(row);
+  if (r.error) { alert(r.error.message); return; }
+  await loadAll();
+}
+async function delCd(id) {
+  const r = await sb.from("cooldown_assignments").delete().eq("id", id);
+  if (r.error) { alert(r.error.message); return; }
+  await loadAll();
+}
+
+/* ---------- affix weeks ---------- */
+function renderWeeks() {
+  const ul = document.getElementById("weekList");
+  ul.innerHTML = state.weeks.map(w =>
+    `<li><b>${esc(w.week_label)}</b> <button class="small" onclick="setWeek('${w.id}')">Set current</button><br>` +
+    `<span class="meta">${esc(w.affixes)}</span>` +
+    (w.adjustments ? `<br><span style="font-size:13px">${esc(w.adjustments)}</span>` : "") +
+    `<div class="actions"><button class="small danger" onclick="delWeek('${w.id}')">Delete</button></div></li>`
+  ).join("") || '<li class="meta">No weeks yet.</li>';
+}
+function renderAffixBanner() {
+  const w = state.weeks.find(x => x.id === state.currentWeek);
+  document.getElementById("affixBanner").innerHTML = w
+    ? `<b>${esc(w.affixes)}</b><br><span style="font-size:12.5px">${esc(w.adjustments || "")}</span>`
+    : "No affix week set.";
+}
+async function saveWeek() {
+  const id = document.getElementById("w_id").value;
+  const row = {
+    week_label: document.getElementById("w_label").value.trim(),
+    affixes: document.getElementById("w_affixes").value.trim(),
+    adjustments: document.getElementById("w_adjust").value.trim() || null
+  };
+  if (!row.week_label || !row.affixes) { alert("Week label and affixes required."); return; }
+  const r = id ? await sb.from("affix_weeks").update(row).eq("id", id)
+               : await sb.from("affix_weeks").insert(row);
+  if (r.error) { alert(r.error.message); return; }
+  document.getElementById("w_id").value = "";
+  document.getElementById("w_label").value = ""; document.getElementById("w_affixes").value = "";
+  document.getElementById("w_adjust").value = "";
+  await loadAll();
+  if (!state.currentWeek && state.weeks.length) state.currentWeek = state.weeks[0].id;
+  renderAffixBanner();
+}
+function setWeek(id) { state.currentWeek = id; renderAffixBanner(); renderWeeks(); }
+async function delWeek(id) {
+  if (!confirm("Delete this week?")) return;
+  const r = await sb.from("affix_weeks").delete().eq("id", id);
+  if (r.error) { alert(r.error.message); return; }
+  if (state.currentWeek === id) state.currentWeek = null;
+  await loadAll();
+}
+
+/* ---------- sessions + debriefs ---------- */
+function renderSessions() {
+  const ul = document.getElementById("sessionList");
+  ul.innerHTML = state.sessions.map(s => {
+    const d = state.dungeons.find(x => x.id === s.dungeon_id);
+    const ds = state.debriefs.filter(x => x.session_id === s.id);
+    const when = s.scheduled_at ? new Date(s.scheduled_at).toLocaleString() : "unscheduled";
+    return `<li><b>${d ? esc(d.name) : "?" } +${s.key_level || "?"}</b> ` +
+      `<span class="status ${s.status}">${s.status.replace("_", " ").toUpperCase()}</span><br>` +
+      `<span class="meta">${when}${s.leader_id ? " - Leader: " + playerName(s.leader_id) : ""}</span>` +
+      ds.map(x => `<div class="debrief">${esc(x.body)}<div class="meta">${new Date(x.created_at).toLocaleString()}</div></div>`).join("") +
+      `<div class="form-grid"><textarea id="db_${s.id}" class="full" placeholder="Debrief notes: what went wrong, what changes"></textarea>` +
+      `<button onclick="saveDebrief('${s.id}')">Add debrief</button>` +
+      `<select id="ss_${s.id}" onchange="setSessionStatus('${s.id}', this.value)">` +
+      ["planning", "invites_sent", "pending", "done"].map(v =>
+        `<option value="${v}"${s.status === v ? " selected" : ""}>${v.replace("_", " ")}</option>`).join("") +
+      `</select>` +
+      `<button class="danger" onclick="delSession('${s.id}')">Delete</button></div></li>`;
+  }).join("") || '<li class="meta">No keys scheduled.</li>';
+}
+async function saveSession() {
+  const row = {
+    dungeon_id: document.getElementById("s_dungeon").value || null,
+    key_level: parseInt(document.getElementById("s_level").value) || null,
+    scheduled_at: document.getElementById("s_when").value ? new Date(document.getElementById("s_when").value).toISOString() : null,
+    leader_id: document.getElementById("s_leader").value || null,
+    status: document.getElementById("s_status").value
+  };
+  if (!row.dungeon_id) { alert("Pick a dungeon."); return; }
+  const r = await sb.from("sessions").insert(row);
+  if (r.error) { alert(r.error.message); return; }
+  await loadAll();
+}
+async function setSessionStatus(id, status) {
+  const r = await sb.from("sessions").update({ status }).eq("id", id);
+  if (r.error) { alert(r.error.message); return; }
+  await loadAll();
+}
+async function delSession(id) {
+  if (!confirm("Delete this session and its debriefs?")) return;
+  const r = await sb.from("sessions").delete().eq("id", id);
+  if (r.error) { alert(r.error.message); return; }
+  await loadAll();
+}
+async function saveDebrief(sessionId) {
+  const body = document.getElementById("db_" + sessionId).value.trim();
+  if (!body) { alert("Write something first."); return; }
+  const s = state.sessions.find(x => x.id === sessionId);
+  const r = await sb.from("debriefs").insert({ session_id: sessionId, dungeon_id: s.dungeon_id, body });
+  if (r.error) { alert(r.error.message); return; }
+  await loadAll();
+}
+
+loadAll();
+</script>
+</body>
+</html>
