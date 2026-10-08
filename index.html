@@ -92,6 +92,7 @@
   .debrief { border-left: 3px solid var(--purple); padding-left: 10px; margin-top: 8px; font-size: 13.5px; }
   .debrief .meta { color: var(--muted); font-size: 12px; }
   #connStatus { font-size: 12px; color: var(--muted); }
+  .tag { display:inline-block; font-size:11px; padding:1px 8px; border-radius:10px; border:1px solid var(--gold); color:var(--gold-hi); margin:1px 3px 1px 0; letter-spacing:0.4px; white-space:nowrap; }
   #connStatus.ok { color: var(--green); }
   #connStatus.err { color: var(--red); }
   .section-head { display: flex; justify-content: space-between; align-items: center; }
@@ -151,6 +152,7 @@
         </div>
       </div>
       <div id="dungeonEmpty" class="meta" style="color:var(--muted)">Add a dungeon to start its playbook.</div>
+      <div id="dungeonOverview" class="card" style="background:var(--panel2);display:none;margin:10px 0 0;font-size:13.5px"></div>
     </div>
 
     <div class="card" id="pullCard">
@@ -319,6 +321,14 @@ function renderDungeons() {
   document.getElementById("dungeonEmpty").style.display = state.dungeons.length ? "none" : "block";
   const cur = state.dungeons.find(d => d.id === state.currentDungeon);
   document.getElementById("dungeonTimer").textContent = cur && cur.timer_seconds ? "Key timer: " + fmtTime(cur.timer_seconds) : "";
+  const ov = document.getElementById("dungeonOverview");
+  if (cur && (cur.location || cur.hazards || cur.notes)) {
+    ov.style.display = "block";
+    ov.innerHTML =
+      (cur.location ? `<div><b style="color:var(--gold-hi)">LOCATION:</b> ${esc(cur.location)}</div>` : "") +
+      (cur.hazards ? `<div style="margin-top:5px"><b style="color:var(--gold-hi)">HAZARDS:</b> ${esc(cur.hazards)}</div>` : "") +
+      (cur.notes ? `<div style="margin-top:5px"><b style="color:var(--gold-hi)">DUNGEON NOTES:</b> ${esc(cur.notes)}</div>` : "");
+  } else { ov.style.display = "none"; ov.innerHTML = ""; }
   const ssel = document.getElementById("s_dungeon");
   ssel.innerHTML = '<option value="">Dungeon...</option>' + state.dungeons.map(d =>
     `<option value="${d.id}">${esc(d.name)}</option>`).join("");
@@ -390,8 +400,20 @@ function renderBosses() {
       `<div class="actions" style="margin:0"><button class="small" onclick="editBoss('${b.id}')">Edit</button>` +
       `<button class="small danger" onclick="delBoss('${b.id}')">Delete</button></div></div>` +
       (b.positioning ? `<div style="font-size:13.5px;margin:6px 0">${esc(b.positioning)}</div>` : "") +
+      (b.phases ? `<div style="font-size:13px;margin:4px 0"><b style="color:var(--gold-hi)">PHASES:</b> ${esc(b.phases)}</div>` : "") +
+      (b.notes ? `<div class="meta" style="color:var(--muted);font-size:12.5px;margin-bottom:4px">${esc(b.notes)}</div>` : "") +
       (abs.length ? `<div style="margin:8px 0"><b style="color:var(--gold-hi);font-size:13px">KEY ABILITIES</b>` +
-        abs.map(a => `<div class="cd-row"><b>${esc(a.name)}</b> — ${esc(a.description || "")}</div>`).join("") + `</div>` : "") +
+        abs.map(a => {
+          const tags = (a.category || "").split(",").map(t => t.trim()).filter(Boolean)
+            .map(t => `<span class="tag">${esc(t)}</span>`).join("");
+          const flags = [];
+          if (a.interruptible === "yes") flags.push("Interruptible");
+          if (a.dispel_type) flags.push(a.dispel_type.charAt(0).toUpperCase() + a.dispel_type.slice(1) + " dispel");
+          if (a.damage_type) flags.push(a.damage_type.charAt(0).toUpperCase() + a.damage_type.slice(1));
+          return `<div class="cd-row"><b>${esc(a.name)}</b> ${tags}` +
+            (flags.length ? `<div style="color:var(--muted);font-size:12px;margin:2px 0">${flags.map(esc).join(" · ")}</div>` : "") +
+            `<div style="font-size:13.5px">${esc(a.description || "")}</div></div>`;
+        }).join("") + `</div>` : "") +
       `<div style="margin-top:8px"><b style="color:var(--gold-hi);font-size:13px">COOLDOWN ASSIGNMENTS</b>` +
       (cds.map(c => `<div class="cd-row"><b>${esc(c.threshold)}</b> - ${playerName(c.player_id)}: ${esc(c.ability)}` +
         (c.note ? ` <span class="meta">(${esc(c.note)})</span>` : "") +
@@ -456,12 +478,15 @@ async function delCd(id) {
 function renderMobs() {
   const div = document.getElementById("mobList");
   const mobs = state.mobs.filter(m => m.dungeon_id === state.currentDungeon);
-  div.innerHTML = mobs.map(m =>
-    `<div style="margin-bottom:10px"><b style="color:var(--gold-hi)">${esc(m.name)}</b>` +
-    (m.abilities ? `<div style="font-size:13.5px;margin-top:3px">${esc(m.abilities)}</div>` : "") +
-    (m.notes ? `<div class="meta" style="color:var(--muted);font-size:12.5px">${esc(m.notes)}</div>` : "") +
-    `</div>`
-  ).join("") || '<div class="meta" style="color:var(--muted)">No notable trash recorded for this dungeon.</div>';
+  div.innerHTML = mobs.map(m => {
+    const tags = (m.category || "").split(",").map(t => t.trim()).filter(Boolean)
+      .map(t => `<span class="tag">${esc(t)}</span>`).join("");
+    return `<div style="margin-bottom:10px"><b style="color:var(--gold-hi)">${esc(m.name)}</b> ` +
+      (m.priority ? `<span class="tag">${esc(m.priority)} priority</span>` : "") + ` ${tags}` +
+      (m.abilities ? `<div style="font-size:13.5px;margin-top:3px">${esc(m.abilities)}</div>` : "") +
+      (m.notes ? `<div class="meta" style="color:var(--muted);font-size:12.5px">${esc(m.notes)}</div>` : "") +
+      `</div>`;
+  }).join("") || '<div class="meta" style="color:var(--muted)">No notable trash recorded for this dungeon.</div>';
 }
 
 /* ---------- key level scaler ---------- */
