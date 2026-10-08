@@ -12,12 +12,17 @@
     --panel2: #1b1b22;
     --gold: #c9a227;
     --gold-hi: #e8c15a;
+    --accent: #9d6bff;
+    --accent-hi: #c4a5ff;
+    --accent2: #5aa9ff;
     --text: #e8e4d8;
     --muted: #9a958a;
     --red: #b03a2e;
     --green: #2e8b57;
     --blue: #3a7bd5;
     --purple: #7d3c98;
+    --line: #33294d;
+    --field-line: #4a3f66;
   }
   * { box-sizing: border-box; }
   body {
@@ -25,38 +30,38 @@
     font-family: Georgia, 'Times New Roman', serif;
   }
   header {
-    border-bottom: 2px solid var(--gold);
+    border-bottom: 2px solid var(--accent);
     padding: 14px 22px;
     display: flex; justify-content: space-between; align-items: center;
-    background: linear-gradient(#17171d, #101014);
+    background: linear-gradient(#191423, #101014);
   }
-  header h1 { margin: 0; color: var(--gold-hi); font-size: 26px; letter-spacing: 2px; }
+  header h1 { margin: 0; color: var(--accent-hi); font-size: 26px; letter-spacing: 2px; }
   header h1 small { display: block; font-size: 12px; color: var(--muted); letter-spacing: 3px; }
   #affixBanner {
-    border: 1px solid var(--gold); border-radius: 6px; padding: 8px 14px;
+    border: 1px solid var(--accent); border-radius: 6px; padding: 8px 14px;
     background: var(--panel2); max-width: 46%; font-size: 14px;
   }
-  #affixBanner b { color: var(--gold-hi); }
+  #affixBanner b { color: var(--accent-hi); }
   .layout { display: flex; gap: 16px; padding: 16px 22px; align-items: flex-start; }
   aside { width: 300px; flex-shrink: 0; }
   main { flex: 1; min-width: 0; }
   .card {
-    background: var(--panel); border: 1px solid #3a3220; border-radius: 8px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
     padding: 14px; margin-bottom: 16px;
   }
   .card h2 {
-    margin: 0 0 10px 0; color: var(--gold-hi); font-size: 17px;
-    letter-spacing: 1px; border-bottom: 1px solid #3a3220; padding-bottom: 8px;
+    margin: 0 0 10px 0; color: var(--accent-hi); font-size: 17px;
+    letter-spacing: 1px; border-bottom: 1px solid var(--line); padding-bottom: 8px;
   }
   .row { display: flex; gap: 8px; align-items: center; }
   input, select, textarea {
-    background: #0a0a0d; color: var(--text); border: 1px solid #4a4230;
+    background: #0a0a0d; color: var(--text); border: 1px solid var(--field-line);
     border-radius: 4px; padding: 7px 9px; font-size: 14px; width: 100%;
     font-family: inherit;
   }
   textarea { min-height: 60px; resize: vertical; }
   button {
-    background: #2a2416; color: var(--gold-hi); border: 1px solid var(--gold);
+    background: #241d3a; color: #d6c6ff; border: 1px solid var(--accent);
     border-radius: 4px; padding: 7px 12px; cursor: pointer; font-size: 13px;
     font-family: inherit; white-space: nowrap;
   }
@@ -93,6 +98,13 @@
   .debrief .meta { color: var(--muted); font-size: 12px; }
   #connStatus { font-size: 12px; color: var(--muted); }
   .tag { display:inline-block; font-size:11px; padding:1px 8px; border-radius:10px; border:1px solid var(--gold); color:var(--gold-hi); margin:1px 3px 1px 0; letter-spacing:0.4px; white-space:nowrap; }
+  .cat-ico { display:inline-flex; width:22px; height:22px; align-items:center; justify-content:center; flex-shrink:0; }
+  .cat-ico svg { width:16px; height:16px; }
+  .ability { display:flex; gap:10px; padding:9px 10px; border:1px solid var(--line); border-radius:6px; margin-bottom:8px; background:rgba(255,255,255,0.015); }
+  .ability .abody { flex:1; min-width:0; }
+  .ability .aname { font-weight:bold; font-size:14.5px; }
+  .mob { display:flex; gap:10px; margin-bottom:12px; }
+  .mob .mbody { flex:1; min-width:0; }
   #connStatus.ok { color: var(--green); }
   #connStatus.err { color: var(--red); }
   .section-head { display: flex; justify-content: space-between; align-items: center; }
@@ -168,9 +180,14 @@
     </div>
 
     <div class="card" id="bossCard">
-      <h2>BOSS NOTES</h2>
-      <div id="bossList"></div>
-      <div class="form-grid">
+      <div class="section-head">
+        <h2>BOSS STRATEGY</h2>
+        <div class="row" style="width:45%">
+          <select id="bossSelect" onchange="selectBoss(this.value)"></select>
+        </div>
+      </div>
+      <div id="bossDetail"></div>
+      <div class="form-grid" style="margin-top:10px">
         <input id="b_name" class="full" placeholder="Boss name">
         <textarea id="b_pos" class="full" placeholder="Positioning notes"></textarea>
         <button class="full" onclick="saveBoss()">Add boss</button>
@@ -221,7 +238,7 @@ const SUPABASE_URL = "https://hahjaldmynnyfmxlbkhw.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhhaGphbGRteW5ueWZteGxia2h3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE0NzczOTksImV4cCI6MjEwNzA1MzM5OX0.AI9Mu7-rbtyYFYaNnizw6aVHt6XBKoLPwmdWnh-1T-s";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-const state = { players: [], dungeons: [], pulls: [], bosses: [], cds: [], weeks: [], sessions: [], debriefs: [], abilities: [], mobs: [], currentDungeon: null, currentWeek: null, keyLevel: 10 };
+const state = { players: [], dungeons: [], pulls: [], bosses: [], cds: [], weeks: [], sessions: [], debriefs: [], abilities: [], mobs: [], currentDungeon: null, currentBoss: null, currentWeek: null, keyLevel: 10 };
 
 const esc = s => String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 const playerName = id => { const p = state.players.find(x => x.id === id); return p ? esc(p.name) : "?"; };
@@ -333,7 +350,7 @@ function renderDungeons() {
   ssel.innerHTML = '<option value="">Dungeon...</option>' + state.dungeons.map(d =>
     `<option value="${d.id}">${esc(d.name)}</option>`).join("");
 }
-function selectDungeon(id) { state.currentDungeon = id || null; renderPulls(); renderBosses(); renderDungeons(); renderMobs(); }
+function selectDungeon(id) { state.currentDungeon = id || null; state.currentBoss = null; renderPulls(); renderBosses(); renderDungeons(); renderMobs(); }
 async function saveDungeon() {
   const name = document.getElementById("d_name").value.trim();
   if (!name) { alert("Dungeon name required."); return; }
@@ -389,43 +406,81 @@ async function delPull(id) {
   await loadAll();
 }
 
+/* ---------- category icons ---------- */
+const CATS = {
+  "Interrupt Priority": { color: "#ff6b5e", icon: '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M9 1 L4 9 H7.5 L6.5 15 L12 6.5 H8.5 Z"/></svg>' },
+  "Dangerous Uninterruptible": { color: "#ff3b30", icon: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 2 L15 14 H1 Z"/><path d="M8 6.5 V10" stroke-linecap="round"/><circle cx="8" cy="12" r="0.9" fill="currentColor" stroke="none"/></svg>' },
+  "Tank Defensive": { color: "#5aa9ff", icon: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 1.5 L13 3.5 V7.5 C13 11 10.5 13.4 8 15 C5.5 13.4 3 11 3 7.5 V3.5 Z"/></svg>' },
+  "Healer Mechanic": { color: "#4ade80", icon: '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M7 2 h2 v5 h5 v2 H9 v5 H7 V9 H2 V7 h5 Z"/></svg>' },
+  "Group Damage": { color: "#fb923c", icon: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 1 V15 M1 8 H15 M3 3 L13 13 M13 3 L3 13"/></svg>' },
+  "Dispel Required": { color: "#2dd4bf", icon: '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1 L9.6 6.4 L15 8 L9.6 9.6 L8 15 L6.4 9.6 L1 8 L6.4 6.4 Z"/></svg>' },
+  "Crowd Control": { color: "#c084fc", icon: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 1 V15 M2.5 4.5 L13.5 11.5 M13.5 4.5 L2.5 11.5"/></svg>' },
+  "Movement / Positioning": { color: "#facc15", icon: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M1.5 8 H13 M10 4.5 L13.5 8 L10 11.5"/></svg>' }
+};
+function catList(s) { return (s || "").split(",").map(t => t.trim()).filter(Boolean); }
+function catTags(s) {
+  return catList(s).map(t => {
+    const c = CATS[t];
+    const style = c ? `border-color:${c.color};color:${c.color}` : "";
+    return `<span class="tag" style="${style}">${esc(t)}</span>`;
+  }).join("");
+}
+function catIcon(s) {
+  const t = catList(s)[0];
+  const c = CATS[t];
+  if (!c) return "";
+  return `<span class="cat-ico" style="color:${c.color}" title="${esc(t)}">${c.icon}</span>`;
+}
+
 /* ---------- bosses + cooldowns ---------- */
 function renderBosses() {
-  const div = document.getElementById("bossList");
+  const sel = document.getElementById("bossSelect");
   const bosses = state.bosses.filter(b => b.dungeon_id === state.currentDungeon);
-  div.innerHTML = bosses.map(b => {
-    const cds = state.cds.filter(c => c.boss_id === b.id);
-    const abs = state.abilities.filter(a => a.boss_id === b.id).sort((x, y) => x.position - y.position);
-    return `<div class="card" style="background:var(--panel2)"><div class="section-head"><b>${esc(b.name)}</b>` +
-      `<div class="actions" style="margin:0"><button class="small" onclick="editBoss('${b.id}')">Edit</button>` +
-      `<button class="small danger" onclick="delBoss('${b.id}')">Delete</button></div></div>` +
-      (b.positioning ? `<div style="font-size:13.5px;margin:6px 0">${esc(b.positioning)}</div>` : "") +
-      (b.phases ? `<div style="font-size:13px;margin:4px 0"><b style="color:var(--gold-hi)">PHASES:</b> ${esc(b.phases)}</div>` : "") +
-      (b.notes ? `<div class="meta" style="color:var(--muted);font-size:12.5px;margin-bottom:4px">${esc(b.notes)}</div>` : "") +
-      (abs.length ? `<div style="margin:8px 0"><b style="color:var(--gold-hi);font-size:13px">KEY ABILITIES</b>` +
-        abs.map(a => {
-          const tags = (a.category || "").split(",").map(t => t.trim()).filter(Boolean)
-            .map(t => `<span class="tag">${esc(t)}</span>`).join("");
-          const flags = [];
-          if (a.interruptible === "yes") flags.push("Interruptible");
-          if (a.dispel_type) flags.push(a.dispel_type.charAt(0).toUpperCase() + a.dispel_type.slice(1) + " dispel");
-          if (a.damage_type) flags.push(a.damage_type.charAt(0).toUpperCase() + a.damage_type.slice(1));
-          return `<div class="cd-row"><b>${esc(a.name)}</b> ${tags}` +
-            (flags.length ? `<div style="color:var(--muted);font-size:12px;margin:2px 0">${flags.map(esc).join(" · ")}</div>` : "") +
-            `<div style="font-size:13.5px">${esc(a.description || "")}</div></div>`;
-        }).join("") + `</div>` : "") +
-      `<div style="margin-top:8px"><b style="color:var(--gold-hi);font-size:13px">COOLDOWN ASSIGNMENTS</b>` +
-      (cds.map(c => `<div class="cd-row"><b>${esc(c.threshold)}</b> - ${playerName(c.player_id)}: ${esc(c.ability)}` +
-        (c.note ? ` <span class="meta">(${esc(c.note)})</span>` : "") +
-        ` <button class="small danger" onclick="delCd('${c.id}')">x</button></div>`).join("") || '<div class="meta">None yet.</div>') +
-      `</div><div class="form-grid">` +
-      `<input id="cd_t_${b.id}" placeholder="Threshold (e.g. 70%)">` +
-      `<select id="cd_p_${b.id}"><option value="">Player...</option>` +
-      state.players.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join("") + `</select>` +
-      `<input id="cd_a_${b.id}" class="full" placeholder="Ability (e.g. Shield of Vengeance)">` +
-      `<button class="full" onclick="saveCd('${b.id}')">Add cooldown</button>` +
-      `</div></div>`;
-  }).join("") || '<div class="meta">No bosses yet for this dungeon.</div>';
+  sel.innerHTML = bosses.map(b => `<option value="${b.id}">${esc(b.name)}</option>`).join("");
+  if (!bosses.find(b => b.id === state.currentBoss)) {
+    state.currentBoss = bosses.length ? bosses[0].id : null;
+  }
+  sel.value = state.currentBoss || "";
+  renderBossDetail();
+}
+function selectBoss(id) { state.currentBoss = id || null; renderBossDetail(); }
+function renderBossDetail() {
+  const div = document.getElementById("bossDetail");
+  const b = state.bosses.find(x => x.id === state.currentBoss);
+  if (!b) { div.innerHTML = '<div class="meta" style="color:var(--muted)">No bosses yet for this dungeon.</div>'; return; }
+  const cds = state.cds.filter(c => c.boss_id === b.id);
+  const abs = state.abilities.filter(a => a.boss_id === b.id).sort((x, y) => x.position - y.position);
+  div.innerHTML =
+    `<div class="section-head"><b style="font-size:16px">${esc(b.name)}</b>` +
+    `<div class="actions" style="margin:0"><button class="small" onclick="editBoss('${b.id}')">Edit</button>` +
+    `<button class="small danger" onclick="delBoss('${b.id}')">Delete</button></div></div>` +
+    (b.positioning ? `<div style="font-size:13.5px;margin:6px 0">${esc(b.positioning)}</div>` : "") +
+    (b.phases ? `<div style="font-size:13px;margin:4px 0"><b style="color:var(--accent-hi)">PHASES:</b> ${esc(b.phases)}</div>` : "") +
+    (b.notes ? `<div class="meta" style="color:var(--muted);font-size:12.5px;margin-bottom:4px">${esc(b.notes)}</div>` : "") +
+    (abs.length ? `<div style="margin:10px 0 4px"><b style="color:var(--accent-hi);font-size:13px">KEY ABILITIES</b></div>` +
+      abs.map(a => {
+        const flags = [];
+        if (a.interruptible === "yes") flags.push("Interruptible");
+        if (a.dispel_type) flags.push(a.dispel_type.charAt(0).toUpperCase() + a.dispel_type.slice(1) + " dispel");
+        if (a.damage_type) flags.push(a.damage_type.charAt(0).toUpperCase() + a.damage_type.slice(1));
+        return `<div class="ability">${catIcon(a.category)}<div class="abody">` +
+          `<div class="aname">${esc(a.name)}</div>` +
+          `<div style="margin:3px 0">${catTags(a.category)}</div>` +
+          (flags.length ? `<div style="color:var(--muted);font-size:12px;margin-bottom:3px">${flags.map(esc).join(" · ")}</div>` : "") +
+          `<div style="font-size:13.5px">${esc(a.description || "")}</div>` +
+          `</div></div>`;
+      }).join("") : "") +
+    `<div style="margin-top:10px"><b style="color:var(--accent-hi);font-size:13px">COOLDOWN ASSIGNMENTS</b>` +
+    (cds.map(c => `<div class="cd-row"><b>${esc(c.threshold)}</b> - ${playerName(c.player_id)}: ${esc(c.ability)}` +
+      (c.note ? ` <span class="meta">(${esc(c.note)})</span>` : "") +
+      ` <button class="small danger" onclick="delCd('${c.id}')">x</button></div>`).join("") || '<div class="meta">None yet.</div>') +
+    `</div><div class="form-grid">` +
+    `<input id="cd_t" placeholder="Threshold (e.g. 70%)">` +
+    `<select id="cd_p"><option value="">Player...</option>` +
+    state.players.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join("") + `</select>` +
+    `<input id="cd_a" class="full" placeholder="Ability (e.g. Shield of Vengeance)">` +
+    `<button class="full" onclick="saveCd()">Add cooldown</button>` +
+    `</div>`;
 }
 async function saveBoss() {
   if (!state.currentDungeon) { alert("Select a dungeon first."); return; }
@@ -454,14 +509,16 @@ async function delBoss(id) {
   if (!confirm("Delete this boss and its cooldown assignments?")) return;
   const r = await sb.from("bosses").delete().eq("id", id);
   if (r.error) { alert(r.error.message); return; }
+  if (state.currentBoss === id) state.currentBoss = null;
   await loadAll();
 }
-async function saveCd(bossId) {
+async function saveCd() {
+  if (!state.currentBoss) { alert("Select a boss first."); return; }
   const row = {
-    boss_id: bossId,
-    threshold: document.getElementById("cd_t_" + bossId).value.trim(),
-    player_id: document.getElementById("cd_p_" + bossId).value || null,
-    ability: document.getElementById("cd_a_" + bossId).value.trim()
+    boss_id: state.currentBoss,
+    threshold: document.getElementById("cd_t").value.trim(),
+    player_id: document.getElementById("cd_p").value || null,
+    ability: document.getElementById("cd_a").value.trim()
   };
   if (!row.threshold || !row.ability) { alert("Threshold and ability required."); return; }
   const r = await sb.from("cooldown_assignments").insert(row);
@@ -479,13 +536,13 @@ function renderMobs() {
   const div = document.getElementById("mobList");
   const mobs = state.mobs.filter(m => m.dungeon_id === state.currentDungeon);
   div.innerHTML = mobs.map(m => {
-    const tags = (m.category || "").split(",").map(t => t.trim()).filter(Boolean)
-      .map(t => `<span class="tag">${esc(t)}</span>`).join("");
-    return `<div style="margin-bottom:10px"><b style="color:var(--gold-hi)">${esc(m.name)}</b> ` +
-      (m.priority ? `<span class="tag">${esc(m.priority)} priority</span>` : "") + ` ${tags}` +
+    return `<div class="mob">${catIcon(m.category)}<div class="mbody">` +
+      `<b style="color:var(--accent-hi)">${esc(m.name)}</b> ` +
+      (m.priority ? `<span class="tag">${esc(m.priority)} priority</span>` : "") +
+      ` ${catTags(m.category)}` +
       (m.abilities ? `<div style="font-size:13.5px;margin-top:3px">${esc(m.abilities)}</div>` : "") +
       (m.notes ? `<div class="meta" style="color:var(--muted);font-size:12.5px">${esc(m.notes)}</div>` : "") +
-      `</div>`;
+      `</div></div>`;
   }).join("") || '<div class="meta" style="color:var(--muted)">No notable trash recorded for this dungeon.</div>';
 }
 
