@@ -142,7 +142,7 @@
   <main>
     <div class="card">
       <div class="section-head">
-        <h2>DUNGEON</h2>
+        <h2>DUNGEON <span id="dungeonTimer" style="font-size:13px;color:var(--muted);letter-spacing:0"></span></h2>
         <div class="row" style="width:60%">
           <select id="dungeonSelect" onchange="selectDungeon(this.value)"></select>
           <input id="d_name" placeholder="New dungeon name">
@@ -176,6 +176,23 @@
       </div>
     </div>
 
+    <div class="card" id="mobCard">
+      <h2>NOTABLE TRASH</h2>
+      <div id="mobList"></div>
+    </div>
+
+    <div class="card">
+      <div class="section-head">
+        <h2>KEY LEVEL SCALING</h2>
+        <div class="row" style="width:45%">
+          <input id="keyLevelInput" type="number" min="2" max="30" value="10" style="max-width:80px">
+          <button onclick="setKeyLevel()">Set</button>
+        </div>
+      </div>
+      <div id="scaleReadout" style="font-size:14px"></div>
+      <div class="meta" style="color:var(--muted);font-size:12px;margin-top:8px">Enemy health and damage scale x1.10 per key level, compounding vs Mythic 0. Fortified: trash +20% HP and damage. Tyrannical: bosses +25% HP, +15% damage. Affix modifiers stack on top of the key multiplier.</div>
+    </div>
+
     <div class="card">
       <h2>SESSION VIEW</h2>
       <ul class="list" id="sessionList"></ul>
@@ -202,7 +219,7 @@ const SUPABASE_URL = "https://hahjaldmynnyfmxlbkhw.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhhaGphbGRteW5ueWZteGxia2h3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE0NzczOTksImV4cCI6MjEwNzA1MzM5OX0.AI9Mu7-rbtyYFYaNnizw6aVHt6XBKoLPwmdWnh-1T-s";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-const state = { players: [], dungeons: [], pulls: [], bosses: [], cds: [], weeks: [], sessions: [], debriefs: [], currentDungeon: null, currentWeek: null };
+const state = { players: [], dungeons: [], pulls: [], bosses: [], cds: [], weeks: [], sessions: [], debriefs: [], abilities: [], mobs: [], currentDungeon: null, currentWeek: null, keyLevel: 10 };
 
 const esc = s => String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 const playerName = id => { const p = state.players.find(x => x.id === id); return p ? esc(p.name) : "?"; };
@@ -210,7 +227,7 @@ const playerName = id => { const p = state.players.find(x => x.id === id); retur
 async function loadAll() {
   const status = document.getElementById("connStatus");
   try {
-    const [pl, du, pu, bo, cd, we, se, de] = await Promise.all([
+    const [pl, du, pu, bo, cd, we, se, de, ab, mo] = await Promise.all([
       sb.from("players").select("*").order("created_at"),
       sb.from("dungeons").select("*").order("name"),
       sb.from("pulls").select("*").order("position"),
@@ -218,12 +235,15 @@ async function loadAll() {
       sb.from("cooldown_assignments").select("*").order("created_at"),
       sb.from("affix_weeks").select("*").order("created_at", { ascending: false }),
       sb.from("sessions").select("*").order("scheduled_at", { ascending: true }),
-      sb.from("debriefs").select("*").order("created_at", { ascending: false })
+      sb.from("debriefs").select("*").order("created_at", { ascending: false }),
+      sb.from("boss_abilities").select("*").order("position"),
+      sb.from("dungeon_mobs").select("*").order("position")
     ]);
-    for (const r of [pl, du, pu, bo, cd, we, se, de]) if (r.error) throw r.error;
+    for (const r of [pl, du, pu, bo, cd, we, se, de, ab, mo]) if (r.error) throw r.error;
     state.players = pl.data; state.dungeons = du.data; state.pulls = pu.data;
     state.bosses = bo.data; state.cds = cd.data; state.weeks = we.data;
     state.sessions = se.data; state.debriefs = de.data;
+    state.abilities = ab.data; state.mobs = mo.data;
     if (!state.currentDungeon && state.dungeons.length) state.currentDungeon = state.dungeons[0].id;
     if (!state.currentWeek && state.weeks.length) state.currentWeek = state.weeks[0].id;
     status.textContent = "Connected to team database";
@@ -238,7 +258,11 @@ async function loadAll() {
 
 function renderAll() {
   renderPlayers(); renderDungeons(); renderPulls(); renderBosses();
-  renderWeeks(); renderSessions(); renderAffixBanner();
+  renderWeeks(); renderSessions(); renderAffixBanner(); renderMobs(); renderKeyScaler();
+}
+function fmtTime(s) {
+  if (s == null) return "";
+  return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
 }
 
 /* ---------- roster ---------- */
@@ -293,11 +317,13 @@ function renderDungeons() {
   sel.innerHTML = state.dungeons.map(d =>
     `<option value="${d.id}"${d.id === state.currentDungeon ? " selected" : ""}>${esc(d.name)}</option>`).join("");
   document.getElementById("dungeonEmpty").style.display = state.dungeons.length ? "none" : "block";
+  const cur = state.dungeons.find(d => d.id === state.currentDungeon);
+  document.getElementById("dungeonTimer").textContent = cur && cur.timer_seconds ? "Key timer: " + fmtTime(cur.timer_seconds) : "";
   const ssel = document.getElementById("s_dungeon");
   ssel.innerHTML = '<option value="">Dungeon...</option>' + state.dungeons.map(d =>
     `<option value="${d.id}">${esc(d.name)}</option>`).join("");
 }
-function selectDungeon(id) { state.currentDungeon = id || null; renderPulls(); renderBosses(); }
+function selectDungeon(id) { state.currentDungeon = id || null; renderPulls(); renderBosses(); renderDungeons(); renderMobs(); }
 async function saveDungeon() {
   const name = document.getElementById("d_name").value.trim();
   if (!name) { alert("Dungeon name required."); return; }
@@ -359,10 +385,13 @@ function renderBosses() {
   const bosses = state.bosses.filter(b => b.dungeon_id === state.currentDungeon);
   div.innerHTML = bosses.map(b => {
     const cds = state.cds.filter(c => c.boss_id === b.id);
+    const abs = state.abilities.filter(a => a.boss_id === b.id).sort((x, y) => x.position - y.position);
     return `<div class="card" style="background:var(--panel2)"><div class="section-head"><b>${esc(b.name)}</b>` +
       `<div class="actions" style="margin:0"><button class="small" onclick="editBoss('${b.id}')">Edit</button>` +
       `<button class="small danger" onclick="delBoss('${b.id}')">Delete</button></div></div>` +
       (b.positioning ? `<div style="font-size:13.5px;margin:6px 0">${esc(b.positioning)}</div>` : "") +
+      (abs.length ? `<div style="margin:8px 0"><b style="color:var(--gold-hi);font-size:13px">KEY ABILITIES</b>` +
+        abs.map(a => `<div class="cd-row"><b>${esc(a.name)}</b> — ${esc(a.description || "")}</div>`).join("") + `</div>` : "") +
       `<div style="margin-top:8px"><b style="color:var(--gold-hi);font-size:13px">COOLDOWN ASSIGNMENTS</b>` +
       (cds.map(c => `<div class="cd-row"><b>${esc(c.threshold)}</b> - ${playerName(c.player_id)}: ${esc(c.ability)}` +
         (c.note ? ` <span class="meta">(${esc(c.note)})</span>` : "") +
@@ -421,6 +450,33 @@ async function delCd(id) {
   const r = await sb.from("cooldown_assignments").delete().eq("id", id);
   if (r.error) { alert(r.error.message); return; }
   await loadAll();
+}
+
+/* ---------- notable mobs ---------- */
+function renderMobs() {
+  const div = document.getElementById("mobList");
+  const mobs = state.mobs.filter(m => m.dungeon_id === state.currentDungeon);
+  div.innerHTML = mobs.map(m =>
+    `<div style="margin-bottom:10px"><b style="color:var(--gold-hi)">${esc(m.name)}</b>` +
+    (m.abilities ? `<div style="font-size:13.5px;margin-top:3px">${esc(m.abilities)}</div>` : "") +
+    (m.notes ? `<div class="meta" style="color:var(--muted);font-size:12.5px">${esc(m.notes)}</div>` : "") +
+    `</div>`
+  ).join("") || '<div class="meta" style="color:var(--muted)">No notable trash recorded for this dungeon.</div>';
+}
+
+/* ---------- key level scaler ---------- */
+function setKeyLevel() {
+  const v = parseInt(document.getElementById("keyLevelInput").value);
+  if (v >= 2 && v <= 30) { state.keyLevel = v; renderKeyScaler(); }
+}
+function renderKeyScaler() {
+  const n = state.keyLevel;
+  const mult = Math.pow(1.10, n);
+  const f = (x) => "x" + x.toFixed(2);
+  document.getElementById("scaleReadout").innerHTML =
+    `At <b style="color:var(--gold-hi)">+${n}</b>: base enemy health/damage <b>${f(mult)}</b> vs Mythic 0<br>` +
+    `<span class="meta" style="color:var(--muted)">Fortified week: trash ${f(mult * 1.2)} &nbsp;|&nbsp; Tyrannical week: bosses ${f(mult * 1.25)} HP / ${f(mult * 1.15)} damage &nbsp;|&nbsp; Both (10+): trash ${f(mult * 1.2)}, bosses ${f(mult * 1.25)} HP / ${f(mult * 1.15)} dmg</span>`;
+  document.getElementById("keyLevelInput").value = n;
 }
 
 /* ---------- affix weeks ---------- */
